@@ -287,10 +287,38 @@ p {
   align-items:center;
 }
 .languages {
+  display:flex;
+  align-items:center;
+  gap:2px;
   font-size:14px;
   color:var(--muted);
   white-space:nowrap;
   letter-spacing:.04em;
+}
+.languages a {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:28px;
+  min-height:28px;
+  border-radius:4px;
+  transition:color .2s;
+}
+.languages a:hover {
+  color:var(--royal);
+  text-decoration:underline;
+  text-underline-offset:4px;
+}
+.languages a[aria-current] {
+  color:var(--navy);
+  font-weight:700;
+}
+.languages a[aria-current]:hover {
+  color:var(--navy);
+  text-decoration:none;
+}
+.languages :focus-visible {
+  outline-offset:2px;
 }
 .nav-actions .button {
   background:var(--royal);
@@ -1631,7 +1659,7 @@ input[aria-invalid=true],select[aria-invalid=true] {
     gap:12px;
   }
   .languages {
-    display:none;
+    font-size:13px;
   }
   .hero-grid {
     grid-template-columns:minmax(0,1fr) minmax(0,480px);
@@ -1926,7 +1954,11 @@ input[aria-invalid=true],select[aria-invalid=true] {
     font-size:14px;
   }
   .languages {
-    display:inline;
+    font-size:15px;
+  }
+  .languages a {
+    min-width:44px;
+    min-height:44px;
   }
   .nav-actions {
     justify-content:space-between;
