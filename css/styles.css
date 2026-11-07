@@ -1269,6 +1269,22 @@ h1>span+span {
   flex:1;
   font-size:14px;
 }
+.calculator label.calc-check {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding-bottom:12px;
+  cursor:pointer;
+}
+.calculator label.calc-check[hidden] {
+  display:none;
+}
+.calc-check input {
+  flex:none;
+  width:18px;
+  height:18px;
+  accent-color:var(--sun);
+}
 .calculator-total {
   display:flex;
   flex-direction:column;
@@ -2455,6 +2471,10 @@ input[aria-invalid=true],select[aria-invalid=true] {
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:16px;
+  }
+  .calculator-grid label.calc-check {
+    grid-column:1/-1;
+    padding-bottom:0;
   }
   .calculator-grid label:first-child {
     grid-column:1/-1;

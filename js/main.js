@@ -187,10 +187,13 @@
     // Preserve invalid input for correction, but never display NaN or a misleading total.
     const valid = calcUsers.validity.valid && calcUsers.value !== '' && (!one || (calcServers.validity.valid && calcServers.value !== ''));
     [calcUsers, calcServers].forEach(input => input.setAttribute('aria-invalid', String(!input.disabled && (!input.validity.valid || input.value === ''))));
-    const total = one ? 299 + Number(calcUsers.value) * 32 + Number(calcServers.value) * 60 : 99 + Number(calcUsers.value) * 15;
+    const calcScan = $('#calc-scan');
+    $('#calc-scan-label').hidden = one;
+    // Quarterly external scanning is included in One; Essentials can add it for $79/month.
+    const total = one ? 349 + Number(calcUsers.value) * 32 + Number(calcServers.value) * 60 : 99 + Number(calcUsers.value) * 15 + (calcScan.checked ? 79 : 0);
     calcTotal.textContent = valid ? `$${formatter.format(total)}` : '—';
   }
-  [calcPackage, calcUsers, calcServers].forEach(input => input.addEventListener('input', updatePrice));
+  [calcPackage, calcUsers, calcServers, $('#calc-scan')].forEach(input => input.addEventListener('input', updatePrice));
   $('.calculator').hidden = false;
   updatePrice();
 
