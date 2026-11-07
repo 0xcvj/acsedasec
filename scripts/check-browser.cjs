@@ -10,18 +10,23 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
 const screenshotDirectory = path.join(root, 'screenshots');
 fs.mkdirSync(screenshotDirectory, { recursive: true });
+const seoScreenshots = path.join(screenshotDirectory, 'seo');
+fs.mkdirSync(seoScreenshots, { recursive: true });
 
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.png': 'image/png' };
-function serve() {
+function serve(directory = root) {
   const server = http.createServer((request, response) => {
-    let file = path.join(root, decodeURIComponent(new URL(request.url, 'http://x').pathname));
-    if (!file.startsWith(root)) { response.writeHead(403).end(); return; }
+    let file = path.join(directory, decodeURIComponent(new URL(request.url, 'http://x').pathname));
+    if (!file.startsWith(directory + path.sep) && file !== directory) { response.writeHead(403).end(); return; }
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
     if (!fs.existsSync(file)) { response.writeHead(404).end(); return; }
     response.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
     fs.createReadStream(file).pipe(response);
   });
-  return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)));
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve(server));
+  });
 }
 
 const NB = ' ';
@@ -29,26 +34,36 @@ const LANGUAGES = {
   en: {
     path: '/', other: 'nl', otherPath: '/nl/',
     prices: ['$219', '$729', '$1,109', '$2,029'],
+    scanPrice: '$298',
     industry: 'Hotels & resorts', previewChecks: [/form is complete/, /no booking has been sent/],
   },
   nl: {
     path: '/nl/', other: 'en', otherPath: '/',
-    prices: [`$${NB}219`, `$${NB}729`, `$${NB}1.109`, `$${NB}2.029`],
+    prices: [`€${NB}193`, `€${NB}634`, `€${NB}969`, `€${NB}1.779`],
+    scanPrice: `€${NB}262`,
     industry: 'Hotels en resorts', previewChecks: [/volledig ingevuld/, /geen afspraak verstuurd/],
   },
 };
 // Phrases that would betray untranslated copy on the Dutch page (visible text, labels, JS messages).
 const ENGLISH = /\b(the|and|your|you|with|for|our|please|enter|book|free|per user|month|night watch|always|monitoring, nights|services|packages|how it works|who we help|about|contact us|open menu|close menu|choose|thank)\b/i;
-const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essentials|One|Secure Check|Managed SOC|Agent|Inbox|Web|Servers|Resort|Contact|EN|NL|EN, English|ACSEDA|CYBERSECURITY|ACSEDA DESK|COMPLIANCE|Week .*|Privacy · Voorwaarden · Responsible disclosure|© 2026 Acseda Cybersecurity)$/;
+const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essentials|One|Secure Check|Managed SOC|Wat is managed detection and response \(MDR\)\?|Agent|Inbox|Web|Servers|Resort|Contact|EN|NL|EN, English|ACSEDA|CYBERSECURITY|ACSEDA DESK|COMPLIANCE|Week .*|Privacy · Voorwaarden · Responsible disclosure|© 2026 Acseda Cybersecurity)$/;
 
 (async () => {
   const server = await serve();
   const base = `http://127.0.0.1:${server.address().port}`;
+  // Optional read-only main checkout for hero screenshots and typography comparison.
+  const mainServer = process.env.MAIN_CHECKOUT ? await serve(path.resolve(process.env.MAIN_CHECKOUT)) : null;
+  const mainBase = mainServer ? `http://127.0.0.1:${mainServer.address().port}` : null;
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.BROWSER_EXECUTABLE ? { executablePath: process.env.BROWSER_EXECUTABLE } : {}),
   });
   const errors = [];
+  const titleStyles = async locator => locator.evaluate(el => {
+    const keys = ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'color'];
+    const read = node => Object.fromEntries(keys.map(key => [key, getComputedStyle(node)[key]]));
+    return [read(el), ...[...el.children].map(read)];
+  });
   try {
     for (const [lang, config] of Object.entries(LANGUAGES)) {
       const url = base + config.path;
@@ -76,7 +91,7 @@ const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essen
         assert.equal(await page.locator('img').evaluateAll(imgs => imgs.every(img => img.naturalWidth > 0)), true, 'Broken photo');
         assert.equal(await page.evaluate(() => document.documentElement.classList.contains('motion')), false, 'Reduced motion preference ignored');
         // Longer Dutch words must not spill out of buttons, chips, tabs, nav or the language switch.
-        const spills = await page.evaluate(() => [...document.querySelectorAll('.button, .chip, .badge, .package-tabs button, .nav-links a, .languages a, .nav-wrap, .cost, .quote-total, h1, h2, h3, h4')]
+        const spills = await page.evaluate(() => [...document.querySelectorAll('.button, .chip, .badge, .package-tabs button, .nav-links a, .languages a, .nav-wrap, .cost, .quote-total, .hero-title, .hero-stats strong, #faq summary, h1, h2, h3, h4')]
           .filter(el => el.offsetParent && el.scrollWidth > el.clientWidth + 1)
           .map(el => `${el.className || el.tagName}: ${el.textContent.trim().slice(0, 40)}`));
         assert.deepEqual(spills, [], `${lang} ${width}px text overflow`);
@@ -87,6 +102,41 @@ const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essen
           assert.equal(await page.locator('.languages').isVisible(), true, `${lang} ${width}px language switch hidden`);
         }
         await page.screenshot({ path: path.join(screenshotDirectory, `${lang}-${width}.png`), fullPage: true });
+        if (width === 390 || width === 1440) {
+          assert.equal(await page.locator('h1.hero-pill').count(), 1);
+          assert.equal(await page.locator('.hero-title > span.entrance').count(), 2);
+          await page.locator('#home').screenshot({ path: path.join(seoScreenshots, `${lang}-${width}-hero.png`) });
+          const details = page.locator('#faq details');
+          assert.equal(await details.count(), 6);
+          for (const detail of await details.all()) {
+            const summary = detail.locator('summary');
+            assert.equal(await detail.evaluate(el => el.open), false);
+            await summary.focus();
+            await page.keyboard.press('Enter');
+            assert.equal(await detail.evaluate(el => el.open), true);
+            assert.equal(await detail.locator('p').isVisible(), true);
+            await page.keyboard.press('Space');
+            assert.equal(await detail.evaluate(el => el.open), false);
+          }
+          await details.first().locator('summary').click();
+          assert.equal(await details.first().evaluate(el => el.open), true);
+          await page.locator('#faq').screenshot({ path: path.join(seoScreenshots, `${lang}-${width}-faq-open.png`) });
+          await details.first().locator('summary').click();
+          assert.equal(await details.first().evaluate(el => el.open), false);
+          await page.locator('#faq').screenshot({ path: path.join(seoScreenshots, `${lang}-${width}-faq.png`) });
+          console.log(`PASS ${lang}: ${width}px FAQ opens and closes with keyboard and pointer; hero + FAQ screenshots saved to screenshots/seo/`);
+          if (mainBase) {
+            const baseline = await browser.newPage({ reducedMotion: 'reduce', viewport: { width, height: 1000 } });
+            await baseline.goto(mainBase + config.path);
+            await baseline.evaluate(() => document.fonts.ready);
+            await baseline.locator('#home').screenshot({ path: path.join(seoScreenshots, `main-${lang}-${width}-hero.png`) });
+            const baselineTitle = baseline.locator('.hero-title, .hero-copy h1:not(.hero-pill)');
+            assert.deepEqual(await titleStyles(page.locator('.hero-title')), await titleStyles(baselineTitle), `${lang} ${width}px slogan typography changed`);
+            assert.equal(await page.locator('.hero-title').textContent(), await baselineTitle.textContent());
+            await baseline.close();
+            console.log(`PASS ${lang}: ${width}px slogan text and computed typography match main; comparison screenshot saved`);
+          }
+        }
         console.log(`PASS ${lang}: ${width}px, no horizontal overflow or text spill, photos, reduced motion; screenshot saved`);
       }
 
@@ -168,6 +218,9 @@ const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essen
       };
       await checkPrice('essentials', 8, 0, config.prices[0]);
       assert.equal(await page.locator('#calc-servers').isDisabled(), true);
+      await page.locator('#calc-scan').check();
+      assert.equal(await page.locator('#calc-total').textContent(), config.scanPrice);
+      await page.locator('#calc-scan').uncheck();
       await checkPrice('one', 10, 1, config.prices[1]);
       await checkPrice('one', 20, 2, config.prices[2]);
       await checkPrice('one', 45, 4, config.prices[3]);
@@ -221,8 +274,8 @@ const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essen
       await page.waitForTimeout(1300);
       assert.equal(await page.locator('.reveal:not(.is-visible)').count(), 0);
       if (lang === 'nl') {
-        const counted = await page.locator('[data-count="1109"], [data-count="2029"]').allTextContents();
-        assert.deepEqual(counted, ['1.109', '2.029'], 'Dutch thousands separator after count-up');
+        const counted = await page.locator('[data-count="1779"]').allTextContents();
+        assert.deepEqual(counted, ['1.779'], 'Dutch thousands separator after count-up');
       }
       await page.locator('#services').scrollIntoViewIfNeeded();
       await page.locator('.service-card').first().hover();
@@ -236,6 +289,11 @@ const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essen
 
       const noJS = await browser.newPage({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
       await noJS.goto(url);
+      const noJSDetail = noJS.locator('#faq details').first();
+      await noJSDetail.locator('summary').click();
+      assert.equal(await noJSDetail.evaluate(el => el.open), true, 'FAQ must open without JavaScript');
+      await noJSDetail.locator('summary').click();
+      assert.equal(await noJSDetail.evaluate(el => el.open), false, 'FAQ must close without JavaScript');
       assert.equal(await noJS.locator('#package-essentials').isVisible(), true);
       assert.equal(await noJS.locator('#package-one').isVisible(), true);
       assert.equal(await noJS.locator('#navigation').isVisible(), true);
@@ -247,5 +305,5 @@ const NL_ALLOWED = /^(Acseda( One| Essentials| Aware| Browse| Desk| Scan)?|Essen
     }
     assert.deepEqual(errors, []);
     console.log('PASS: no JavaScript runtime errors on either page');
-  } finally { await browser.close(); server.close(); }
+  } finally { await browser.close(); server.close(); mainServer?.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
