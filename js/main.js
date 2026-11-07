@@ -14,6 +14,7 @@
     en: {
       locale: 'en-US',
       currency: '$',
+      rates: { essentialsBase: 99, essentialsUser: 15, oneBase: 349, oneUser: 32, server: 60, scan: 79 },
       menuOpen: 'Open menu',
       menuClose: 'Close menu',
       required: {
@@ -32,8 +33,9 @@
     },
     nl: {
       locale: 'nl-NL',
-      // Dutch convention: currency sign, non-breaking space, amount ($ 1.109).
-      currency: '$\u00a0',
+      // Dutch convention: currency sign, non-breaking space, amount (€ 1.234).
+      currency: '€\u00a0',
+      rates: { essentialsBase: 89, essentialsUser: 13, oneBase: 299, oneUser: 28, server: 55, scan: 69 },
       menuOpen: 'Menu openen',
       menuClose: 'Menu sluiten',
       required: {
@@ -233,8 +235,9 @@
     [calcUsers, calcServers].forEach(input => input.setAttribute('aria-invalid', String(!input.disabled && (!input.validity.valid || input.value === ''))));
     const calcScan = $('#calc-scan');
     $('#calc-scan-label').hidden = one;
-    // Quarterly external scanning is included in One; Essentials can add it for $79/month.
-    const total = one ? 349 + Number(calcUsers.value) * 32 + Number(calcServers.value) * 60 : 99 + Number(calcUsers.value) * 15 + (calcScan.checked ? 79 : 0);
+    // Quarterly external scanning is included in One; Essentials can add it at the page language’s rate.
+    const rates = t.rates;
+    const total = one ? rates.oneBase + Number(calcUsers.value) * rates.oneUser + Number(calcServers.value) * rates.server : rates.essentialsBase + Number(calcUsers.value) * rates.essentialsUser + (calcScan.checked ? rates.scan : 0);
     calcTotal.textContent = valid ? `${t.currency}${formatter.format(total)}` : '—';
   }
   [calcPackage, calcUsers, calcServers, $('#calc-scan')].forEach(input => input.addEventListener('input', updatePrice));

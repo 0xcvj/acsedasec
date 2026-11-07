@@ -75,11 +75,11 @@ def check_page(lang, path):
 docs = {lang: check_page(lang, path) for lang, path in PAGES.items()}
 doc, ids = docs['en']
 
-# Both languages must share one structure: same elements, IDs, classes, data attributes and in-page links.
+# Both languages must share one structure; count-up amounts may differ by currency.
 def skeleton(document):
     body = document.elements[[tag for tag, _ in document.elements].index('body'):]
     keep = lambda k, v: k in ('id', 'class', 'type', 'for', 'name', 'role') or k.startswith('data-') or (k == 'href' and v.startswith('#'))
-    return [(tag, sorted((k, v) for k, v in attrs.items() if keep(k, v))) for tag, attrs in body]
+    return [(tag, sorted((k, '<localized count>' if k == 'data-count' else v) for k, v in attrs.items() if keep(k, v))) for tag, attrs in body]
 en_skeleton, nl_skeleton = skeleton(docs['en'][0]), skeleton(docs['nl'][0])
 assert len(en_skeleton) == len(nl_skeleton), f'EN/NL element count differs: {len(en_skeleton)} vs {len(nl_skeleton)}'
 for index, (a, b) in enumerate(zip(en_skeleton, nl_skeleton)):
