@@ -67,7 +67,7 @@ def check_page(lang, path):
     h1_index = next(i for i, (tag, _) in enumerate(doc.elements) if tag == 'h1')
     expected_h1 = {
         'en': 'Managed cybersecurity for businesses in Aruba, the Caribbean and the Netherlands',
-        'nl': 'Managed cybersecurity voor het mkb in Nederland en op Aruba',
+        'nl': 'Managed cybersecurity voor het mkb in Nederland en het Caribisch gebied',
     }
     assert doc.text_at(h1_index) == expected_h1[lang]
     assert doc.elements[h1_index][1]['class'] == 'hero-pill entrance'
