@@ -1,3 +1,14 @@
 node_modules/
 .DS_Store
+
+# Launch video
 brag-output/
+
+# Designs, mocks and working documents (kept locally, not in the repo)
+reference/
+screenshots/
+*.figcraft
+*.fig
+*.psd
+*.pdf
+*.docx

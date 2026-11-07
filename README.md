@@ -6,7 +6,7 @@ Open `index.html` directly, or serve this folder with `python3 -m http.server 80
 - `css/styles.css`: design tokens, responsive layouts, interaction and motion styles.
 - `js/main.js`: navigation, reveals, counts, console sequence, stack highlighting, calculator and validation.
 - `assets/`: supplied placeholder photos and owl SVG favicon.
-- `reference/`: unchanged approved design and source copy.
+- `reference/`: approved design and source copy, local only (gitignored). `scripts/check-source.py` needs it.
 - `scripts/`: source checks and optional browser verification.
 
 The calculator beneath the example quotes and the form within the CTA band extend the approved design as requested. The stack reflows and packages use a segmented control on small screens. Without JavaScript, content, links and both packages remain visible.
