@@ -9,6 +9,50 @@
   const compactPackages = matchMedia('(max-width: 600px)');
   root.classList.add('js');
 
+  // User-visible strings, chosen by the page language (<html lang>). Each language has its own page; nothing redirects.
+  const strings = {
+    en: {
+      locale: 'en-US',
+      currency: '$',
+      menuOpen: 'Open menu',
+      menuClose: 'Close menu',
+      required: {
+        name: 'Please enter your name.',
+        company: 'Please enter your company.',
+        email: 'Please enter your email address.',
+        phone: 'Please enter your phone number.',
+        users: 'Please enter your number of users.',
+      },
+      invalidEmail: 'Enter a valid email address, such as name@company.com.',
+      invalidPhone: 'Enter a valid phone number, including your country code.',
+      invalidUsers: 'Enter a whole number of users between 1 and 100,000.',
+      chooseIndustry: 'Please choose your industry.',
+      formInvalid: 'Please correct the highlighted fields.',
+      formPreview: 'Thank you. Your Secure Check form is complete. This is a preview: no booking has been sent. To schedule, contact hello@acsedasec.com or +297 000 0000.',
+    },
+    nl: {
+      locale: 'nl-NL',
+      // Dutch convention: currency sign, non-breaking space, amount ($ 1.109).
+      currency: '$\u00a0',
+      menuOpen: 'Menu openen',
+      menuClose: 'Menu sluiten',
+      required: {
+        name: 'Vul uw naam in.',
+        company: 'Vul uw bedrijfsnaam in.',
+        email: 'Vul uw e-mailadres in.',
+        phone: 'Vul uw telefoonnummer in.',
+        users: 'Vul het aantal gebruikers in.',
+      },
+      invalidEmail: 'Vul een geldig e-mailadres in, bijvoorbeeld naam@bedrijf.com.',
+      invalidPhone: 'Vul een geldig telefoonnummer in, inclusief landnummer.',
+      invalidUsers: 'Vul een heel getal tussen 1 en 100.000 in.',
+      chooseIndustry: 'Kies uw branche.',
+      formInvalid: 'Controleer de gemarkeerde velden.',
+      formPreview: 'Dank u wel. Uw aanvraag voor een Secure Check is volledig ingevuld. Dit is een voorbeeldversie: er is geen afspraak verstuurd. Neem voor een afspraak contact op via hello@acsedasec.com of +297 000 0000.',
+    },
+  };
+  const t = strings[(root.lang || 'en').slice(0, 2).toLowerCase()] || strings.en;
+
   // The menu button and its links form a single keyboard focus loop.
   const toggle = $('.menu-toggle');
   const navigation = $('#navigation');
@@ -17,7 +61,7 @@
   const setMenu = (open, restoreFocus = false) => {
     menuOpen = open && mobile.matches;
     toggle.setAttribute('aria-expanded', String(menuOpen));
-    toggle.setAttribute('aria-label', menuOpen ? 'Close menu' : 'Open menu');
+    toggle.setAttribute('aria-label', menuOpen ? t.menuClose : t.menuOpen);
     navigation.classList.toggle('is-open', menuOpen);
     document.body.classList.toggle('menu-open', menuOpen);
     // Inert prevents keyboard and assistive technology access to the covered page.
@@ -82,7 +126,7 @@
   const counters = $$('[data-count]');
   const completedCounters = new WeakSet();
   const countFrames = new Map();
-  const formatter = new Intl.NumberFormat('en-US');
+  const formatter = new Intl.NumberFormat(t.locale);
   function countUp(element) {
     if (completedCounters.has(element)) return;
     completedCounters.add(element);
@@ -191,7 +235,7 @@
     $('#calc-scan-label').hidden = one;
     // Quarterly external scanning is included in One; Essentials can add it for $79/month.
     const total = one ? 349 + Number(calcUsers.value) * 32 + Number(calcServers.value) * 60 : 99 + Number(calcUsers.value) * 15 + (calcScan.checked ? 79 : 0);
-    calcTotal.textContent = valid ? `$${formatter.format(total)}` : '—';
+    calcTotal.textContent = valid ? `${t.currency}${formatter.format(total)}` : '—';
   }
   [calcPackage, calcUsers, calcServers, $('#calc-scan')].forEach(input => input.addEventListener('input', updatePrice));
   $('.calculator').hidden = false;
@@ -202,14 +246,13 @@
   const submitButton = $('button[type=submit]', form);
   submitButton.disabled = false;
   const fields = $$('input, select', form);
-  const fieldNames = { name: 'name', company: 'company', email: 'email address', phone: 'phone number', industry: 'industry', users: 'number of users' };
   function validate(field) {
     let message = '';
-    if (!field.value.trim()) message = `Please enter your ${fieldNames[field.name]}.`;
-    else if (field.type === 'email' && field.validity.typeMismatch) message = 'Enter a valid email address, such as name@company.com.';
-    else if (field.name === 'phone' && (!/^[+()\d\s.\-]{6,30}$/.test(field.value.trim()) || field.value.replace(/\D/g, '').length < 6)) message = 'Enter a valid phone number, including your country code.';
-    else if (field.name === 'users' && !field.validity.valid) message = 'Enter a whole number of users between 1 and 100,000.';
-    if (field.name === 'industry' && !field.value) message = 'Please choose your industry.';
+    if (field.name === 'industry' && !field.value) message = t.chooseIndustry;
+    else if (!field.value.trim()) message = t.required[field.name];
+    else if (field.type === 'email' && field.validity.typeMismatch) message = t.invalidEmail;
+    else if (field.name === 'phone' && (!/^[+()\d\s.\-]{6,30}$/.test(field.value.trim()) || field.value.replace(/\D/g, '').length < 6)) message = t.invalidPhone;
+    else if (field.name === 'users' && !field.validity.valid) message = t.invalidUsers;
     field.setAttribute('aria-invalid', String(Boolean(message)));
     $(`#error-${field.name}`).textContent = message;
     return !message;
@@ -222,13 +265,13 @@
     event.preventDefault();
     const invalid = fields.filter(field => !validate(field));
     if (invalid.length) {
-      $('#form-status').textContent = 'Please correct the highlighted fields.';
+      $('#form-status').textContent = t.formInvalid;
       invalid[0].focus();
       return;
     }
     // TODO: Connect an approved booking endpoint here; await its response before showing a confirmed booking.
     form.classList.add('submitted');
-    $('#form-status').textContent = 'Thank you. Your Secure Check form is complete. This is a preview: no booking has been sent. To schedule, contact hello@acsedasec.com or +297 000 0000.';
+    $('#form-status').textContent = t.formPreview;
     $('#form-status').focus();
     form.reset();
   });
